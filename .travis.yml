@@ -4,6 +4,6 @@ jdk:
   - oraclejdk9
 
 env:
-  - $PROJECT_DIR=lecture02
+  - $PROJECT_DIR=web_hackaton
 
 script: cd $PROJECT_DIR && ./gradlew assemble && ./gradlew check
