@@ -11,6 +11,9 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 
+import java.io.*;
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
 import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentHashMap;
@@ -24,6 +27,25 @@ public class ChatController {
 
     private Queue<String> messages = new ConcurrentLinkedQueue<>();
     private Map<String, String> usersOnline = new ConcurrentHashMap<>();
+    Calendar cal = Calendar.getInstance();
+    SimpleDateFormat sdf = new SimpleDateFormat("HH:mm:ss");
+
+        File file = new File("chathistory.txt");
+
+    public ChatController() throws IOException {
+        if(file.exists())
+        {
+            FileReader fr = new FileReader(file);
+            BufferedReader reader = new BufferedReader(fr);
+            String line = reader.readLine();
+            while (line != null) {
+                messages.add(line);
+                line = reader.readLine();
+            }
+        }
+
+    }
+
 
     /**
      * curl -X POST -i localhost:8080/chat/login -d "name=I_AM_STUPID"
@@ -37,14 +59,27 @@ public class ChatController {
         if (name.length() < 1) {
             return ResponseEntity.badRequest().body("Too short name, sorry :(");
         }
-        if (name.length() > 20) {
+        if (name.length() > 200) {
             return ResponseEntity.badRequest().body("Too long name, sorry :(");
         }
         if (usersOnline.containsKey(name)) {
             return ResponseEntity.badRequest().body("Already logged in:(");
         }
         usersOnline.put(name, name);
-        messages.add("[" + name + "] logged in");
+        cal = Calendar.getInstance();
+        String msg = "[" + sdf.format(cal.getTime()) + "] " + name + " logged in";
+        messages.add(msg);
+        try(FileWriter writer = new FileWriter("chathistory.txt", true))
+        {
+            String text = msg;
+            writer.append(text);
+            writer.append('\n');
+            writer.flush();
+        }
+        catch(IOException ex){
+
+            System.out.println(ex.getMessage());
+        }
         return ResponseEntity.ok().build();
     }
 
@@ -62,6 +97,7 @@ public class ChatController {
                 HttpStatus.OK);
     }
 
+
     /**
      * curl -i localhost:8080/chat/online
      */
@@ -70,9 +106,9 @@ public class ChatController {
             method = RequestMethod.GET,
             produces = MediaType.TEXT_PLAIN_VALUE)
     public ResponseEntity online() {
-        return new ResponseEntity<>(HttpStatus.BAD_REQUEST);//TODO
+        String responseBody = String.join("\n", usersOnline.keySet().stream().sorted().collect(Collectors.toList()));
+        return ResponseEntity.ok(responseBody);
     }
-
     /**
      * curl -X POST -i localhost:8080/chat/logout -d "name=I_AM_STUPID"
      */
@@ -84,10 +120,23 @@ public class ChatController {
     public ResponseEntity<String> logout(@RequestParam("name") String name) {
         if (usersOnline.containsKey(name)) {
             usersOnline.remove(name);
-            messages.add("[" + name + "] logged out");
+            cal = Calendar.getInstance();
+            String msg = "[" + sdf.format(cal.getTime()) + "] " + name + " logged out";
+            messages.add(msg);
+            try(FileWriter writer = new FileWriter("chathistory.txt", true))
+            {
+                String text = msg;
+                writer.append(text);
+                writer.append('\n');
+                writer.flush();
+            }
+            catch(IOException ex){
+
+                System.out.println(ex.getMessage());
+            }
             return ResponseEntity.ok("success");
         } else
-            return ResponseEntity.badRequest().body("[" + name + "] is not found");
+            return ResponseEntity.badRequest().body(name + " is not found");
 
     }
 
@@ -102,7 +151,23 @@ public class ChatController {
     @ResponseStatus(HttpStatus.OK)
     public ResponseEntity<String> say(@RequestParam("name") String name, @RequestParam("msg") String msg) {
         if (usersOnline.containsKey(name)) {
-            messages.add("[" + name + "]: " + msg);
+            cal = Calendar.getInstance();
+
+            String msgstring = "[" + sdf.format(cal.getTime()) + "] " + name + ": " + msg;
+            messages.add(msgstring);
+
+            try(FileWriter writer = new FileWriter("chathistory.txt", true))
+            {
+                String text = msgstring;
+                writer.append(text);
+                writer.append('\n');
+                writer.flush();
+            }
+            catch(IOException ex){
+
+                System.out.println(ex.getMessage());
+            }
+
             return ResponseEntity.ok().build();
         }
 
