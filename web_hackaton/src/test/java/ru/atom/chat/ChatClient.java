@@ -36,10 +36,29 @@ public class ChatClient {
     }
 
     public static Response viewOnline() throws IOException {
-        throw new UnsupportedOperationException();
+        Request request = new Request.Builder()
+                .get()
+                .url(PROTOCOL + HOST + PORT + "/chat/online")
+                .build();
+        return client.newCall(request).execute();
     }
 
-    public static Response say(String name, String msg) {
-        throw new UnsupportedOperationException();
+    public static Response say(String name, String msg) throws IOException {
+        MediaType mediaType = MediaType.parse("application/x-www-form-urlencoded");
+        Request request = new Request.Builder()
+                .post(RequestBody.create(mediaType, "msg='" + msg + "'"))
+                .url(PROTOCOL + HOST + PORT + "/chat/say?name=" + name)
+                .build();
+        return client.newCall(request).execute();
+    }
+
+    public static Response logout(String name) throws IOException {
+        MediaType mediaType = MediaType.parse("application/x-www-form-urlencoded");
+        Request request = new Request.Builder()
+                .post(RequestBody.create(mediaType, ""))
+                .url(PROTOCOL + HOST + PORT + "/chat/logout?name=" + name)
+                .build();
+
+        return client.newCall(request).execute();
     }
 }
