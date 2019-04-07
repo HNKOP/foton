@@ -11,7 +11,12 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 
-import java.io.*;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
+import java.io.IOException;
+import java.io.FileWriter;
+
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Map;
@@ -30,11 +35,10 @@ public class ChatController {
     Calendar cal = Calendar.getInstance();
     SimpleDateFormat sdf = new SimpleDateFormat("HH:mm:ss");
 
-        File file = new File("chathistory.txt");
+    File file = new File("chathistory.txt");
 
     public ChatController() throws IOException {
-        if(file.exists())
-        {
+        if (file.exists()) {
             FileReader fr = new FileReader(file);
             BufferedReader reader = new BufferedReader(fr);
             String line = reader.readLine();
@@ -69,14 +73,12 @@ public class ChatController {
         cal = Calendar.getInstance();
         String msg = "[" + sdf.format(cal.getTime()) + "] " + name + " logged in";
         messages.add(msg);
-        try(FileWriter writer = new FileWriter("chathistory.txt", true))
-        {
+        try (FileWriter writer = new FileWriter("chathistory.txt", true)) {
             String text = msg;
             writer.append(text);
             writer.append('\n');
             writer.flush();
-        }
-        catch(IOException ex){
+        } catch (IOException ex) {
 
             System.out.println(ex.getMessage());
         }
@@ -109,6 +111,7 @@ public class ChatController {
         String responseBody = String.join("\n", usersOnline.keySet().stream().sorted().collect(Collectors.toList()));
         return ResponseEntity.ok(responseBody);
     }
+
     /**
      * curl -X POST -i localhost:8080/chat/logout -d "name=I_AM_STUPID"
      */
@@ -123,14 +126,12 @@ public class ChatController {
             cal = Calendar.getInstance();
             String msg = "[" + sdf.format(cal.getTime()) + "] " + name + " logged out";
             messages.add(msg);
-            try(FileWriter writer = new FileWriter("chathistory.txt", true))
-            {
+            try (FileWriter writer = new FileWriter("chathistory.txt", true)) {
                 String text = msg;
                 writer.append(text);
                 writer.append('\n');
                 writer.flush();
-            }
-            catch(IOException ex){
+            } catch (IOException ex) {
 
                 System.out.println(ex.getMessage());
             }
@@ -156,14 +157,12 @@ public class ChatController {
             String msgstring = "[" + sdf.format(cal.getTime()) + "] " + name + ": " + msg;
             messages.add(msgstring);
 
-            try(FileWriter writer = new FileWriter("chathistory.txt", true))
-            {
+            try (FileWriter writer = new FileWriter("chathistory.txt", true)) {
                 String text = msgstring;
                 writer.append(text);
                 writer.append('\n');
                 writer.flush();
-            }
-            catch(IOException ex){
+            } catch (IOException ex) {
 
                 System.out.println(ex.getMessage());
             }
