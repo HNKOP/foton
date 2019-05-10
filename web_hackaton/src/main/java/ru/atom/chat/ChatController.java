@@ -1,5 +1,11 @@
 package ru.atom.chat;
 
+
+import org.jooq.DSLContext;
+import org.jooq.Record;
+import org.jooq.Result;
+import org.jooq.SQLDialect;
+import org.jooq.impl.DSL;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -11,7 +17,11 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 
+
+
 import java.io.*;
+import java.sql.Connection;
+import java.sql.DriverManager;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Map;
@@ -19,6 +29,9 @@ import java.util.Queue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.stream.Collectors;
+
+import static test.generated.tables.Messages.MESSAGES;
+import static test.generated.tables.Users.USERS;
 
 @Controller
 @RequestMapping("chat")
@@ -30,17 +43,45 @@ public class ChatController {
     Calendar cal = Calendar.getInstance();
     SimpleDateFormat sdf = new SimpleDateFormat("HH:mm:ss");
 
-        File file = new File("chathistory.txt");
+
+    File file = new File("chathistory.txt");
+
+    String userName = "root";
+    String password = "233029";
+    String url = "jdbc:mysql://localhost:3306/atom";
 
     public ChatController() throws IOException {
-        if(file.exists())
-        {
-            FileReader fr = new FileReader(file);
-            BufferedReader reader = new BufferedReader(fr);
-            String line = reader.readLine();
-            while (line != null) {
-                messages.add(line);
-                line = reader.readLine();
+
+        try (Connection conn = DriverManager.getConnection(url)) {
+            // ...
+            DSLContext create = DSL.using(conn, SQLDialect.MYSQL);
+            Result<Record> result = create.select().from(MESSAGES).fetch();
+
+            for(Record r : result) {
+                Integer id = r.getValue(MESSAGES.ID);
+                String username = r.getValue(MESSAGES.MSG_USERNAME);
+                String usertext = r.getValue(MESSAGES.MSG_TEXT);
+                String usertime = r.getValue(MESSAGES.MSG_TIME);
+
+                messages.add("[" + usertime + "] " + username + ": " + usertext);
+
+               // System.out.println(id + username + usertext + usertime);
+            }
+
+        }
+
+        // For the sake of this tutorial, let's keep exception handling simple
+        catch (Exception e) {
+            e.printStackTrace();
+            if(file.exists())
+            {
+                FileReader fr = new FileReader(file);
+                BufferedReader reader = new BufferedReader(fr);
+                String line = reader.readLine();
+                while (line != null) {
+                    messages.add(line);
+                    line = reader.readLine();
+                }
             }
         }
 
@@ -62,13 +103,43 @@ public class ChatController {
         if (name.length() > 200) {
             return ResponseEntity.badRequest().body("Too long name, sorry :(");
         }
-        if (usersOnline.containsKey(name)) {
-            return ResponseEntity.badRequest().body("Already logged in:(");
+        try (Connection conn = DriverManager.getConnection(url, userName, password)) {
+            DSLContext create = DSL.using(conn, SQLDialect.MYSQL);
+            Result<Record> result = create.select().from(USERS).where(USERS.NAME.equal(name)).fetch();
+
+            if(!result.isEmpty()){
+                return ResponseEntity.badRequest().body("Already logged in:(");
+            }
+
         }
+        catch (Exception e) {
+            e.printStackTrace();
+        }
+       // if (usersOnline.containsKey(name)) {
+        //    return ResponseEntity.badRequest().body("Already logged in:(");
+       // }
+
+
+
         usersOnline.put(name, name);
         cal = Calendar.getInstance();
         String msg = "[" + sdf.format(cal.getTime()) + "] " + name + " logged in";
         messages.add(msg);
+
+        try (Connection conn = DriverManager.getConnection(url, userName, password)) {
+            // ...
+            DSLContext create = DSL.using(conn, SQLDialect.MYSQL);
+            create.insertInto(MESSAGES, MESSAGES.MSG_USERNAME,MESSAGES.MSG_TEXT,MESSAGES.MSG_TIME)
+                    .values(name,"Logged in",sdf.format(cal.getTime()))
+                    .execute();
+            create.insertInto(USERS, USERS.NAME)
+                    .values(name)
+                    .execute();
+        }
+        catch (Exception e) {
+            e.printStackTrace();
+        }
+
         try(FileWriter writer = new FileWriter("chathistory.txt", true))
         {
             String text = msg;
@@ -123,6 +194,21 @@ public class ChatController {
             cal = Calendar.getInstance();
             String msg = "[" + sdf.format(cal.getTime()) + "] " + name + " logged out";
             messages.add(msg);
+
+            try (Connection conn = DriverManager.getConnection(url, userName, password)) {
+                // ...
+                DSLContext create = DSL.using(conn, SQLDialect.MYSQL);
+                create.insertInto(MESSAGES, MESSAGES.MSG_USERNAME,MESSAGES.MSG_TEXT,MESSAGES.MSG_TIME)
+                        .values(name,"Logged out",sdf.format(cal.getTime()))
+                        .execute();
+                create.delete(USERS)
+                        .where(USERS.NAME.equal(name))
+                        .execute();
+            }
+            catch (Exception e) {
+                e.printStackTrace();
+            }
+
             try(FileWriter writer = new FileWriter("chathistory.txt", true))
             {
                 String text = msg;
@@ -149,12 +235,27 @@ public class ChatController {
             method = RequestMethod.POST,
             consumes = MediaType.APPLICATION_FORM_URLENCODED_VALUE)
     @ResponseStatus(HttpStatus.OK)
-    public ResponseEntity<String> say(@RequestParam("name") String name, @RequestParam("msg") String msg) {
+    public ResponseEntity<String> say(@RequestParam("name") String name, @RequestParam("msg") String msg)  {
         if (usersOnline.containsKey(name)) {
             cal = Calendar.getInstance();
 
             String msgstring = "[" + sdf.format(cal.getTime()) + "] " + name + ": " + msg;
             messages.add(msgstring);
+
+
+            try (Connection conn = DriverManager.getConnection(url, userName, password)) {
+                // ...
+                DSLContext create = DSL.using(conn, SQLDialect.MYSQL);
+                create.insertInto(MESSAGES, MESSAGES.MSG_USERNAME,MESSAGES.MSG_TEXT,MESSAGES.MSG_TIME)
+                        .values(name,msg,sdf.format(cal.getTime()))
+                        .execute();
+            }
+
+            // For the sake of this tutorial, let's keep exception handling simple
+            catch (Exception e) {
+                e.printStackTrace();
+            }
+
 
             try(FileWriter writer = new FileWriter("chathistory.txt", true))
             {
